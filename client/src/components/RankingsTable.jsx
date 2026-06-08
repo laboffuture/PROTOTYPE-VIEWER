@@ -14,6 +14,7 @@ export function RankingsTable({ results }) {
           {['#', 'MODEL', 'AVG RATING', 'VOTES'].map((h) => (
             <th
               key={h}
+              scope="col"
               style={{
                 textAlign: h === '#' || h === 'MODEL' ? 'left' : 'right',
                 padding: '8px 12px',
