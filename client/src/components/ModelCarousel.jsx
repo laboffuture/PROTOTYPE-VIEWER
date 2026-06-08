@@ -23,10 +23,9 @@ export function ModelCarousel({ models, ratings, onRate, onSubmit }) {
           key={current._id}
           src={current.sketchfabEmbedUrl}
           title={current.name}
-          frameBorder="0"
           allowFullScreen
           allow="autoplay; fullscreen; xr-spatial-tracking"
-          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
         />
       </div>
 
