@@ -7,4 +7,4 @@ const modelSchema = new mongoose.Schema({
   order: { type: Number, required: true },
 }, { timestamps: true });
 
-module.exports = mongoose.model('Model', modelSchema);
+module.exports = mongoose.model('SessionModel', modelSchema);

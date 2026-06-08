@@ -4,8 +4,10 @@ const mongoose = require('mongoose');
 let mongod;
 
 beforeAll(async () => {
-  mongod = await MongoMemoryServer.create();
-  await mongoose.connect(mongod.getUri());
+  if (mongoose.connection.readyState === 0) {
+    mongod = await MongoMemoryServer.create();
+    await mongoose.connect(mongod.getUri());
+  }
 });
 
 afterEach(async () => {
@@ -15,7 +17,10 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.connection.close();
-  await mongod.stop();
+  if (mongod) {
+    await mongoose.connection.dropDatabase();
+    await mongoose.connection.close();
+    await mongod.stop();
+    mongod = undefined;
+  }
 });
