@@ -25,6 +25,7 @@ export function AdminLogin() {
         return;
       }
       const { token } = await res.json();
+      if (!token) throw new Error('No token received');
       localStorage.setItem('admin_token', token);
       localStorage.setItem('admin_session_id', sessionId.trim());
       navigate('/admin/dashboard');
