@@ -12,7 +12,7 @@ const router = express.Router();
 router.post('/sessions', async (req, res, next) => {
   try {
     const { name, password, masterSecret } = req.body;
-    if (masterSecret !== process.env.ADMIN_MASTER_SECRET) {
+    if (!process.env.ADMIN_MASTER_SECRET || masterSecret !== process.env.ADMIN_MASTER_SECRET) {
       return res.status(401).json({ error: 'Invalid master secret' });
     }
     if (!name || !password) {
@@ -132,10 +132,7 @@ router.get('/sessions/:id/results', requireAuth, async (req, res, next) => {
         };
       })
     );
-    results.sort((a, b) => {
-      if (b.averageRating !== a.averageRating) return b.averageRating - a.averageRating;
-      return a.voteCount - b.voteCount;
-    });
+    results.sort((a, b) => b.averageRating - a.averageRating);
     res.json({ results });
   } catch (err) { next(err); }
 });

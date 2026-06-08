@@ -96,6 +96,8 @@ describe('PATCH /api/admin/sessions/:id/status', () => {
       .send({ status: 'closed' });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('closed');
+    const updated = await Session.findById(session._id);
+    expect(updated.closedAt).not.toBeNull();
   });
 
   it('rejects without JWT', async () => {
@@ -219,7 +221,7 @@ describe('GET /api/admin/sessions/:id/results', () => {
     await Vote.insertMany([
       { sessionId: session._id, modelId: model1._id, voterUUID: 'u1', rating: 5 },
       { sessionId: session._id, modelId: model1._id, voterUUID: 'u2', rating: 3 },
-      { sessionId: session._id, modelId: model2._id, voterUUID: 'u1', rating: 4 },
+      { sessionId: session._id, modelId: model2._id, voterUUID: 'u1', rating: 5 },
     ]);
     token = jwt.sign({ sessionId: session._id.toString() }, 'test-secret', { expiresIn: '1h' });
   });
@@ -230,7 +232,7 @@ describe('GET /api/admin/sessions/:id/results', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.results[0].name).toBe('Catapult Glider');
-    expect(res.body.results[0].averageRating).toBe(4.0);
+    expect(res.body.results[0].averageRating).toBe(5.0);
     expect(res.body.results[0].voteCount).toBe(1);
     expect(res.body.results[1].name).toBe('Heat Seek Rover');
     expect(res.body.results[1].averageRating).toBe(4.0);
