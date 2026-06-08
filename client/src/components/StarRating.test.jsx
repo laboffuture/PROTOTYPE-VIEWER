@@ -17,7 +17,7 @@ describe('StarRating', () => {
   it('calls onChange with 1 when first star clicked', () => {
     const onChange = vi.fn();
     render(<StarRating value={0} onChange={onChange} />);
-    fireEvent.click(screen.getByLabelText('Rate 1 stars'));
+    fireEvent.click(screen.getByLabelText('Rate 1 star'));
     expect(onChange).toHaveBeenCalledWith(1);
   });
 

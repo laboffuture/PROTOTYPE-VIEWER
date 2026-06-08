@@ -1,11 +1,11 @@
-export function StarRating({ value, onChange }) {
+export function StarRating({ value, onChange = () => {} }) {
   return (
     <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
       {[1, 2, 3, 4, 5].map((star) => (
         <button
           key={star}
           onClick={() => onChange(star)}
-          aria-label={`Rate ${star} stars`}
+          aria-label={`Rate ${star} ${star === 1 ? 'star' : 'stars'}`}
           style={{
             background: 'none',
             border: 'none',
