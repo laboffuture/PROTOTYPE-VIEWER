@@ -83,6 +83,20 @@ describe('POST /api/votes', () => {
     expect(await Vote.countDocuments()).toBe(2);
   });
 
+  it('returns 200 when entire batch is duplicate', async () => {
+    const body = {
+      sessionId: session._id.toString(),
+      voterUUID: 'uuid-alldupe',
+      ratings: [{ modelId: model1._id.toString(), rating: 3 }],
+    };
+    await request(app).post('/api/votes').send(body);
+    const res = await request(app).post('/api/votes').send(body);
+    expect(res.status).toBe(200);
+    expect(res.body.saved[0].saved).toBe(false);
+    expect(res.body.saved[0].reason).toBe('duplicate');
+    expect(await Vote.countDocuments()).toBe(1);
+  });
+
   it('rejects rating out of range (6)', async () => {
     const res = await request(app)
       .post('/api/votes')
@@ -92,6 +106,7 @@ describe('POST /api/votes', () => {
         ratings: [{ modelId: model1._id.toString(), rating: 6 }],
       });
     expect(res.status).toBe(400);
+    expect(res.body.error).toBeDefined();
   });
 
   it('rejects rating out of range (0)', async () => {
@@ -103,6 +118,7 @@ describe('POST /api/votes', () => {
         ratings: [{ modelId: model1._id.toString(), rating: 0 }],
       });
     expect(res.status).toBe(400);
+    expect(res.body.error).toBeDefined();
   });
 
   it('rejects missing voterUUID', async () => {
@@ -113,5 +129,6 @@ describe('POST /api/votes', () => {
         ratings: [{ modelId: model1._id.toString(), rating: 3 }],
       });
     expect(res.status).toBe(400);
+    expect(res.body.error).toBeDefined();
   });
 });

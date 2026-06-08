@@ -12,7 +12,7 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: 'sessionId, non-empty ratings array, and voterUUID required' });
     }
     for (const { modelId, rating } of ratings) {
-      if (!modelId || typeof rating !== 'number' || rating < 1 || rating > 5) {
+      if (!modelId || !Number.isInteger(rating) || rating < 1 || rating > 5) {
         return res.status(400).json({ error: 'Each rating must have modelId and rating between 1 and 5' });
       }
     }

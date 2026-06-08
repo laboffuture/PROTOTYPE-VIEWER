@@ -29,7 +29,7 @@ describe('GET /api/sessions/:id', () => {
     expect(res.status).toBe(200);
     expect(res.body.session.name).toBe('Test Session');
     expect(res.body.session.status).toBe('open');
-    expect(res.body.session).not.toHaveProperty('adminPasswordHash');
+    expect(Object.keys(res.body.session)).toEqual(['id', 'name', 'status']);
     expect(res.body.models).toHaveLength(2);
     expect(res.body.models[0].name).toBe('Model A');
     expect(res.body.models[1].name).toBe('Model B');
