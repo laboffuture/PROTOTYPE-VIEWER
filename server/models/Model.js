@@ -4,6 +4,7 @@ const modelSchema = new mongoose.Schema({
   sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Session', required: true },
   name: { type: String, required: true },
   sketchfabEmbedUrl: { type: String, required: true },
+  description: { type: String, default: '' },
   order: { type: Number, required: true },
 }, { timestamps: true });
 

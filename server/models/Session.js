@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const sessionSchema = new mongoose.Schema({
   name: { type: String, required: true },
   status: { type: String, enum: ['open', 'closed'], default: 'closed' },
-  adminPasswordHash: { type: String, required: true },
   closedAt: { type: Date, default: null },
 }, { timestamps: true });
 

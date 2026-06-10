@@ -1,5 +1,4 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Session = require('../models/Session');
 const Model = require('../models/Model');
@@ -8,39 +7,43 @@ const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-// POST /api/admin/sessions — create a new session (protected by ADMIN_MASTER_SECRET)
-router.post('/sessions', async (req, res, next) => {
+// POST /api/admin/login
+// Body: { username, password }
+router.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'username and password required' });
+  }
+  if (
+    username !== process.env.ADMIN_USERNAME ||
+    password !== process.env.ADMIN_PASSWORD
+  ) {
+    return res.status(401).json({ error: 'Invalid username or password' });
+  }
+  const token = jwt.sign({ role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '24h' });
+  res.json({ token });
+});
+
+// GET /api/admin/sessions — list all sessions
+router.get('/sessions', requireAuth, async (req, res, next) => {
   try {
-    const { name, password, masterSecret } = req.body;
-    if (!process.env.ADMIN_MASTER_SECRET || masterSecret !== process.env.ADMIN_MASTER_SECRET) {
-      return res.status(401).json({ error: 'Invalid master secret' });
-    }
-    if (!name || !password) {
-      return res.status(400).json({ error: 'name and password required' });
-    }
-    const adminPasswordHash = await bcrypt.hash(password, 10);
-    const session = await Session.create({ name, adminPasswordHash });
-    res.status(201).json({ sessionId: session._id, name: session.name, status: session.status });
+    const sessions = await Session.find().sort({ createdAt: -1 });
+    const list = await Promise.all(sessions.map(async (s) => {
+      const modelCount = await Model.countDocuments({ sessionId: s._id });
+      return { id: s._id, name: s.name, status: s.status, modelCount, createdAt: s.createdAt };
+    }));
+    res.json({ sessions: list });
   } catch (err) { next(err); }
 });
 
-// POST /api/admin/login
-router.post('/login', async (req, res, next) => {
+// POST /api/admin/sessions — create a new session
+// Body: { name }
+router.post('/sessions', requireAuth, async (req, res, next) => {
   try {
-    const { sessionId, password } = req.body;
-    if (!sessionId || !password) {
-      return res.status(400).json({ error: 'sessionId and password required' });
-    }
-    const session = await Session.findById(sessionId);
-    if (!session) return res.status(404).json({ error: 'Session not found' });
-    const valid = await bcrypt.compare(password, session.adminPasswordHash);
-    if (!valid) return res.status(401).json({ error: 'Invalid password' });
-    const token = jwt.sign(
-      { sessionId: session._id.toString() },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-    res.json({ token });
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const session = await Session.create({ name });
+    res.status(201).json({ id: session._id, name: session.name, status: session.status });
   } catch (err) { next(err); }
 });
 
@@ -50,9 +53,6 @@ router.patch('/sessions/:id/status', requireAuth, async (req, res, next) => {
     const { status } = req.body;
     if (!['open', 'closed'].includes(status)) {
       return res.status(400).json({ error: 'status must be open or closed' });
-    }
-    if (req.admin.sessionId !== req.params.id) {
-      return res.status(403).json({ error: 'Forbidden' });
     }
     const update = { status };
     if (status === 'closed') update.closedAt = new Date();
@@ -65,15 +65,12 @@ router.patch('/sessions/:id/status', requireAuth, async (req, res, next) => {
 // POST /api/admin/sessions/:id/models
 router.post('/sessions/:id/models', requireAuth, async (req, res, next) => {
   try {
-    if (req.admin.sessionId !== req.params.id) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
     const session = await Session.findById(req.params.id);
     if (!session) return res.status(404).json({ error: 'Session not found' });
     if (session.status === 'open') {
       return res.status(400).json({ error: 'Cannot add models while session is open' });
     }
-    const { name, sketchfabEmbedUrl } = req.body;
+    const { name, sketchfabEmbedUrl, description } = req.body;
     if (!name || !sketchfabEmbedUrl) {
       return res.status(400).json({ error: 'name and sketchfabEmbedUrl required' });
     }
@@ -82,12 +79,14 @@ router.post('/sessions/:id/models', requireAuth, async (req, res, next) => {
       sessionId: req.params.id,
       name,
       sketchfabEmbedUrl,
+      description: description || '',
       order: count + 1,
     });
     res.status(201).json({
       id: model._id,
       name: model.name,
       sketchfabEmbedUrl: model.sketchfabEmbedUrl,
+      description: model.description,
       order: model.order,
     });
   } catch (err) { next(err); }
@@ -96,9 +95,6 @@ router.post('/sessions/:id/models', requireAuth, async (req, res, next) => {
 // DELETE /api/admin/sessions/:id/models/:modelId
 router.delete('/sessions/:id/models/:modelId', requireAuth, async (req, res, next) => {
   try {
-    if (req.admin.sessionId !== req.params.id) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
     const session = await Session.findById(req.params.id);
     if (!session) return res.status(404).json({ error: 'Session not found' });
     if (session.status === 'open') {
@@ -113,9 +109,6 @@ router.delete('/sessions/:id/models/:modelId', requireAuth, async (req, res, nex
 // GET /api/admin/sessions/:id/results
 router.get('/sessions/:id/results', requireAuth, async (req, res, next) => {
   try {
-    if (req.admin.sessionId !== req.params.id) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
     const models = await Model.find({ sessionId: req.params.id }).sort({ order: 1 });
     const results = await Promise.all(
       models.map(async (model) => {
@@ -123,12 +116,14 @@ router.get('/sessions/:id/results', requireAuth, async (req, res, next) => {
         const avg = votes.length > 0
           ? votes.reduce((sum, v) => sum + v.rating, 0) / votes.length
           : 0;
+        const distribution = [0, 0, 0, 0, 0]; // index 0 = 1 star ... index 4 = 5 stars
+        votes.forEach((v) => { distribution[v.rating - 1] += 1; });
         return {
           id: model._id,
           name: model.name,
-          sketchfabEmbedUrl: model.sketchfabEmbedUrl,
           averageRating: Math.round(avg * 10) / 10,
           voteCount: votes.length,
+          distribution,
         };
       })
     );

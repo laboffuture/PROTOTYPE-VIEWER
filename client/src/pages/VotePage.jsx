@@ -91,12 +91,14 @@ export function VotePage() {
   if (submitted) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-        <div className="card" style={{ padding: 48, textAlign: 'center', maxWidth: 400 }}>
+        <div className="card" style={{ padding: 48, textAlign: 'center', maxWidth: 420 }}>
           <p style={{ fontSize: 48, marginBottom: 16 }}>★</p>
           <h1 className="card-title" style={{ fontSize: '1.5rem', color: 'var(--brand)', marginBottom: 12 }}>
             THANK YOU!
           </h1>
-          <p className="body-text">Your ratings have been recorded.</p>
+          <p className="body-text">
+            Thanks for your input and your time. Your ratings have been recorded.
+          </p>
         </div>
       </div>
     );
@@ -123,9 +125,9 @@ export function VotePage() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: '32px 24px' }}>
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ marginBottom: 32, textAlign: 'center' }}>
-          <p className="eyebrow">LOF INTERNAL</p>
+          <p className="eyebrow">PROTOVIEW</p>
           <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.5rem', fontWeight: 900, color: 'var(--brand)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             {session?.name}
           </h1>
@@ -134,7 +136,7 @@ export function VotePage() {
           </p>
         </div>
 
-        <div className="card" style={{ padding: 32 }}>
+        <div className="card" style={{ padding: '24px 20px' }}>
           <ModelCarousel
             models={models}
             ratings={ratings}
