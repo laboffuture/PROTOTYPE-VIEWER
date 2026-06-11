@@ -43,24 +43,39 @@ describe('ModelCarousel', () => {
     expect(screen.queryByText('Next →')).not.toBeInTheDocument();
   });
 
-  it('Submit is disabled when last model not rated', () => {
+  it('Submit is disabled when nothing is rated', () => {
     render(<ModelCarousel models={models} ratings={{}} onRate={() => {}} onSubmit={() => {}} />);
     fireEvent.click(screen.getByText('Next →'));
     fireEvent.click(screen.getByText('Next →'));
     expect(screen.getByText('Submit Ratings')).toBeDisabled();
   });
 
-  it('Submit is enabled when last model is rated', () => {
-    const ratings = { m3: 4 };
+  it('Submit is disabled when only some models are rated', () => {
+    const ratings = { m3: 4 }; // m1 and m2 skipped
+    render(<ModelCarousel models={models} ratings={ratings} onRate={() => {}} onSubmit={() => {}} />);
+    fireEvent.click(screen.getByText('Next →'));
+    fireEvent.click(screen.getByText('Next →'));
+    expect(screen.getByText('Submit Ratings')).toBeDisabled();
+    expect(screen.getByText(/rate every prototype/i)).toBeInTheDocument();
+  });
+
+  it('Submit is enabled only when every model is rated', () => {
+    const ratings = { m1: 3, m2: 5, m3: 4 };
     render(<ModelCarousel models={models} ratings={ratings} onRate={() => {}} onSubmit={() => {}} />);
     fireEvent.click(screen.getByText('Next →'));
     fireEvent.click(screen.getByText('Next →'));
     expect(screen.getByText('Submit Ratings')).not.toBeDisabled();
   });
 
+  it('shows rated progress count', () => {
+    const ratings = { m1: 3, m2: 5 };
+    render(<ModelCarousel models={models} ratings={ratings} onRate={() => {}} onSubmit={() => {}} />);
+    expect(screen.getByText('2 of 3 rated')).toBeInTheDocument();
+  });
+
   it('calls onSubmit when Submit button clicked', () => {
     const onSubmit = vi.fn();
-    const ratings = { m3: 5 };
+    const ratings = { m1: 4, m2: 2, m3: 5 };
     render(<ModelCarousel models={models} ratings={ratings} onRate={() => {}} onSubmit={onSubmit} />);
     fireEvent.click(screen.getByText('Next →'));
     fireEvent.click(screen.getByText('Next →'));

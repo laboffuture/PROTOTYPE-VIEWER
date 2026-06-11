@@ -1,7 +1,6 @@
 process.env.JWT_SECRET = 'test-secret';
 
 const request = require('supertest');
-const bcrypt = require('bcryptjs');
 const app = require('../index');
 const Session = require('../models/Session');
 const Model = require('../models/Model');
@@ -11,11 +10,7 @@ describe('POST /api/votes', () => {
   let session, model1, model2;
 
   beforeEach(async () => {
-    session = await Session.create({
-      name: 'Open Session',
-      adminPasswordHash: await bcrypt.hash('pass', 10),
-      status: 'open',
-    });
+    session = await Session.create({ name: 'Open Session', status: 'open' });
     model1 = await Model.create({
       sessionId: session._id,
       name: 'Model A',
@@ -30,81 +25,79 @@ describe('POST /api/votes', () => {
     });
   });
 
-  it('saves valid ratings for multiple models', async () => {
+  const fullRatings = (r1 = 4, r2 = 2) => [
+    { modelId: model1._id.toString(), rating: r1 },
+    { modelId: model2._id.toString(), rating: r2 },
+  ];
+
+  it('saves ratings covering every model in the batch', async () => {
     const res = await request(app)
       .post('/api/votes')
-      .send({
-        sessionId: session._id.toString(),
-        voterUUID: 'uuid-abc',
-        ratings: [
-          { modelId: model1._id.toString(), rating: 4 },
-          { modelId: model2._id.toString(), rating: 2 },
-        ],
-      });
+      .send({ sessionId: session._id.toString(), voterUUID: 'uuid-abc', ratings: fullRatings() });
     expect(res.status).toBe(200);
     expect(res.body.saved).toHaveLength(2);
     expect(res.body.saved.every(s => s.saved === true)).toBe(true);
     expect(await Vote.countDocuments()).toBe(2);
   });
 
+  it('rejects partial submission (not every model rated)', async () => {
+    const res = await request(app)
+      .post('/api/votes')
+      .send({
+        sessionId: session._id.toString(),
+        voterUUID: 'uuid-partial',
+        ratings: [{ modelId: model1._id.toString(), rating: 4 }],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/all prototypes must be rated/i);
+    expect(await Vote.countDocuments()).toBe(0);
+  });
+
+  it('rejects ratings for a model not in the batch', async () => {
+    const other = await Session.create({ name: 'Other', status: 'open' });
+    const foreign = await Model.create({
+      sessionId: other._id,
+      name: 'Foreign',
+      sketchfabEmbedUrl: 'https://sketchfab.com/models/f/embed',
+      order: 1,
+    });
+    const res = await request(app)
+      .post('/api/votes')
+      .send({
+        sessionId: session._id.toString(),
+        voterUUID: 'uuid-foreign',
+        ratings: [...fullRatings(), { modelId: foreign._id.toString(), rating: 5 }],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/not in this batch/i);
+    expect(await Vote.countDocuments()).toBe(0);
+  });
+
   it('rejects vote on closed session', async () => {
     await Session.findByIdAndUpdate(session._id, { status: 'closed' });
     const res = await request(app)
       .post('/api/votes')
-      .send({
-        sessionId: session._id.toString(),
-        voterUUID: 'uuid-xyz',
-        ratings: [{ modelId: model1._id.toString(), rating: 3 }],
-      });
+      .send({ sessionId: session._id.toString(), voterUUID: 'uuid-xyz', ratings: fullRatings() });
     expect(res.status).toBe(403);
     expect(await Vote.countDocuments()).toBe(0);
   });
 
-  it('silently skips duplicate vote, saves new model votes', async () => {
-    const body = {
-      sessionId: session._id.toString(),
-      voterUUID: 'uuid-dup',
-      ratings: [{ modelId: model1._id.toString(), rating: 4 }],
-    };
-    await request(app).post('/api/votes').send(body);
+  it('silently skips duplicates on full resubmission', async () => {
+    await request(app)
+      .post('/api/votes')
+      .send({ sessionId: session._id.toString(), voterUUID: 'uuid-dup', ratings: fullRatings() });
     const res = await request(app)
       .post('/api/votes')
-      .send({
-        sessionId: session._id.toString(),
-        voterUUID: 'uuid-dup',
-        ratings: [
-          { modelId: model1._id.toString(), rating: 5 },
-          { modelId: model2._id.toString(), rating: 3 },
-        ],
-      });
+      .send({ sessionId: session._id.toString(), voterUUID: 'uuid-dup', ratings: fullRatings(5, 3) });
     expect(res.status).toBe(200);
-    expect(res.body.saved.find(s => s.modelId === model1._id.toString()).reason).toBe('duplicate');
-    expect(res.body.saved.find(s => s.modelId === model2._id.toString()).saved).toBe(true);
+    expect(res.body.saved.every(s => s.saved === false && s.reason === 'duplicate')).toBe(true);
     expect(await Vote.countDocuments()).toBe(2);
-  });
-
-  it('returns 200 when entire batch is duplicate', async () => {
-    const body = {
-      sessionId: session._id.toString(),
-      voterUUID: 'uuid-alldupe',
-      ratings: [{ modelId: model1._id.toString(), rating: 3 }],
-    };
-    await request(app).post('/api/votes').send(body);
-    const res = await request(app).post('/api/votes').send(body);
-    expect(res.status).toBe(200);
-    expect(res.body.saved[0].saved).toBe(false);
-    expect(res.body.saved[0].reason).toBe('duplicate');
-    expect(await Vote.countDocuments()).toBe(1);
   });
 
   it('rejects rating out of range (6)', async () => {
     const res = await request(app)
       .post('/api/votes')
-      .send({
-        sessionId: session._id.toString(),
-        voterUUID: 'uuid-bad',
-        ratings: [{ modelId: model1._id.toString(), rating: 6 }],
-      });
+      .send({ sessionId: session._id.toString(), voterUUID: 'uuid-bad', ratings: fullRatings(6, 2) });
     expect(res.status).toBe(400);
     expect(res.body.error).toBeDefined();
   });
@@ -112,11 +105,7 @@ describe('POST /api/votes', () => {
   it('rejects rating out of range (0)', async () => {
     const res = await request(app)
       .post('/api/votes')
-      .send({
-        sessionId: session._id.toString(),
-        voterUUID: 'uuid-bad2',
-        ratings: [{ modelId: model1._id.toString(), rating: 0 }],
-      });
+      .send({ sessionId: session._id.toString(), voterUUID: 'uuid-bad2', ratings: fullRatings(0, 2) });
     expect(res.status).toBe(400);
     expect(res.body.error).toBeDefined();
   });
@@ -124,11 +113,22 @@ describe('POST /api/votes', () => {
   it('rejects missing voterUUID', async () => {
     const res = await request(app)
       .post('/api/votes')
-      .send({
-        sessionId: session._id.toString(),
-        ratings: [{ modelId: model1._id.toString(), rating: 3 }],
-      });
+      .send({ sessionId: session._id.toString(), ratings: fullRatings() });
     expect(res.status).toBe(400);
     expect(res.body.error).toBeDefined();
+  });
+
+  it('returns 404 for malformed sessionId', async () => {
+    const res = await request(app)
+      .post('/api/votes')
+      .send({ sessionId: 'not-an-id', voterUUID: 'uuid-mal', ratings: fullRatings() });
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 404 for unknown sessionId', async () => {
+    const res = await request(app)
+      .post('/api/votes')
+      .send({ sessionId: '000000000000000000000000', voterUUID: 'uuid-unk', ratings: fullRatings() });
+    expect(res.status).toBe(404);
   });
 });

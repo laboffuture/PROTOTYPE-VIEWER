@@ -21,6 +21,8 @@ export function VotePage() {
   const [ratings, setRatings] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState(null);
+  const [submitError, setSubmitError] = useState(null);
+  const [closedDuringVote, setClosedDuringVote] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -52,6 +54,7 @@ export function VotePage() {
 
   const handleSubmit = async () => {
     setSubmitting(true);
+    setSubmitError(null);
     const voterUUID = getOrCreateUUID();
     const ratingsList = Object.entries(ratings).map(([modelId, rating]) => ({ modelId, rating }));
     try {
@@ -60,11 +63,19 @@ export function VotePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, voterUUID, ratings: ratingsList }),
       });
-      if (!res.ok) throw new Error('Submit failed');
+      if (res.status === 403) {
+        setClosedDuringVote(true);
+        return;
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setSubmitError(data.error || 'Failed to submit. Please try again.');
+        return;
+      }
       localStorage.setItem(`submitted_${sessionId}`, '1');
       setSubmitted(true);
     } catch {
-      setError('Failed to submit. Please try again.');
+      setSubmitError('Failed to submit. Check your connection and try again.');
     } finally {
       setSubmitting(false);
     }
@@ -104,12 +115,16 @@ export function VotePage() {
     );
   }
 
-  if (session?.status === 'closed') {
+  if (closedDuringVote || session?.status === 'closed') {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
         <div className="card" style={{ padding: 48, textAlign: 'center', maxWidth: 400 }}>
           <h1 className="card-title" style={{ color: 'var(--text-muted)', marginBottom: 12 }}>VOTING IS CLOSED</h1>
-          <p className="body-text">This session is no longer accepting votes.</p>
+          <p className="body-text">
+            {closedDuringVote
+              ? 'Voting closed while you were rating, so your ratings could not be submitted.'
+              : 'This session is no longer accepting votes.'}
+          </p>
         </div>
       </div>
     );
@@ -135,6 +150,12 @@ export function VotePage() {
             Rate each 3D prototype from 1 to 5 stars
           </p>
         </div>
+
+        {submitError && (
+          <div style={{ background: 'var(--accent-bg)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', padding: '10px 16px', fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--accent)', marginBottom: 16, textAlign: 'center' }}>
+            {submitError}
+          </div>
+        )}
 
         <div className="card" style={{ padding: '24px 20px' }}>
           <ModelCarousel

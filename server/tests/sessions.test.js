@@ -1,18 +1,13 @@
 process.env.JWT_SECRET = 'test-secret';
 
 const request = require('supertest');
-const bcrypt = require('bcryptjs');
 const app = require('../index');
 const Session = require('../models/Session');
 const Model = require('../models/Model');
 
 describe('GET /api/sessions/:id', () => {
   it('returns session info and ordered models list', async () => {
-    const session = await Session.create({
-      name: 'Test Session',
-      adminPasswordHash: await bcrypt.hash('pass', 10),
-      status: 'open',
-    });
+    const session = await Session.create({ name: 'Test Session', status: 'open' });
     await Model.create({
       sessionId: session._id,
       name: 'Model B',
@@ -37,6 +32,11 @@ describe('GET /api/sessions/:id', () => {
 
   it('returns 404 for unknown session', async () => {
     const res = await request(app).get('/api/sessions/000000000000000000000000');
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 404 (not 500) for malformed session id', async () => {
+    const res = await request(app).get('/api/sessions/definitely-not-an-objectid');
     expect(res.status).toBe(404);
   });
 });

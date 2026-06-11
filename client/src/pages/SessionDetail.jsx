@@ -20,11 +20,10 @@ function StatCard({ label, value, accent }) {
   );
 }
 
-function ResultBar({ rank, result }) {
+function ResultBar({ rank, result, isLeader }) {
   const pct = (result.averageRating / 5) * 100;
   const distribution = result.distribution || [0, 0, 0, 0, 0];
   const maxDist = Math.max(...distribution, 1);
-  const isLeader = rank === 1 && result.voteCount > 0;
 
   return (
     <div style={{ padding: '18px 0', borderBottom: '1px solid var(--border)' }}>
@@ -128,6 +127,14 @@ export function SessionDetail() {
     return () => clearInterval(timerRef.current);
   }, [token, navigate, load]);
 
+  // Shared response handling: expired token → login, otherwise surface the
+  // server's error message (e.g. "Add at least one prototype before opening")
+  const handleFailure = async (res, fallback) => {
+    if (res.status === 401) { navigate('/admin'); return; }
+    const data = await res.json().catch(() => ({}));
+    setError(data.error || fallback);
+  };
+
   const updateStatus = async (status) => {
     setError('');
     const res = await fetch(`${API}/api/admin/sessions/${id}/status`, {
@@ -136,7 +143,7 @@ export function SessionDetail() {
       body: JSON.stringify({ status }),
     });
     if (res.ok) load();
-    else setError('Failed to update status.');
+    else await handleFailure(res, 'Failed to update status.');
   };
 
   const addModel = async (e) => {
@@ -151,8 +158,7 @@ export function SessionDetail() {
       setNewModel({ name: '', sketchfabEmbedUrl: '', description: '' });
       load();
     } else {
-      const data = await res.json();
-      setError(data.error || 'Failed to add model.');
+      await handleFailure(res, 'Failed to add model.');
     }
   };
 
@@ -163,7 +169,21 @@ export function SessionDetail() {
       headers: authHeaders,
     });
     if (res.ok) load();
-    else setError('Failed to delete model.');
+    else await handleFailure(res, 'Failed to delete model.');
+  };
+
+  const deleteBatch = async () => {
+    const confirmed = window.confirm(
+      `Delete the batch "${session?.name}" along with all its prototypes and votes? This cannot be undone.`
+    );
+    if (!confirmed) return;
+    setError('');
+    const res = await fetch(`${API}/api/admin/sessions/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders,
+    });
+    if (res.ok) navigate('/admin/dashboard');
+    else await handleFailure(res, 'Failed to delete batch.');
   };
 
   const copyLink = () => {
@@ -184,7 +204,10 @@ export function SessionDetail() {
 
   const isOpen = session?.status === 'open';
   const totalVotes = results.reduce((sum, r) => sum + r.voteCount, 0);
-  const leader = results.find((r) => r.voteCount > 0);
+  // Ties share the lead — every voted model matching the top average is a leader
+  const topAvg = Math.max(0, ...results.filter((r) => r.voteCount > 0).map((r) => r.averageRating));
+  const leaders = results.filter((r) => r.voteCount > 0 && Math.abs(r.averageRating - topAvg) < 0.001);
+  const isLeaderId = new Set(leaders.map((r) => r.id));
 
   return (
     <AdminLayout crumb={session?.name || 'Batch'}>
@@ -212,6 +235,18 @@ export function SessionDetail() {
                 ? <button className="btn btn-neutral" style={{ fontSize: 11, padding: '8px 16px' }} onClick={() => updateStatus('closed')}>Close Voting</button>
                 : <button className="btn btn-primary" style={{ fontSize: 11, padding: '8px 16px' }} onClick={() => updateStatus('open')}>Open Voting</button>
               }
+              <button
+                className="btn"
+                style={{
+                  fontSize: 11, padding: '8px 16px',
+                  background: 'var(--accent-bg)', border: '2px solid var(--accent-border)', color: 'var(--accent)',
+                }}
+                onClick={deleteBatch}
+                disabled={isOpen}
+                title={isOpen ? 'Close voting before deleting' : 'Delete this batch'}
+              >
+                Delete Batch
+              </button>
             </div>
           </div>
         </header>
@@ -226,7 +261,11 @@ export function SessionDetail() {
         <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
           <StatCard label="TOTAL VOTES" value={totalVotes} accent />
           <StatCard label="PROTOTYPES" value={models.length} />
-          <StatCard label="LEADING" value={leader ? leader.name : '—'} accent={!!leader} />
+          <StatCard
+            label="LEADING"
+            value={leaders.length ? leaders.map((r) => r.name).join(' & ') : '—'}
+            accent={leaders.length > 0}
+          />
         </div>
 
         {/* Live results */}
@@ -245,7 +284,7 @@ export function SessionDetail() {
               No prototypes yet — add them below.
             </p>
           ) : (
-            results.map((r, i) => <ResultBar key={r.id} rank={i + 1} result={r} />)
+            results.map((r, i) => <ResultBar key={r.id} rank={i + 1} result={r} isLeader={isLeaderId.has(r.id)} />)
           )}
         </div>
 

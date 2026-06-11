@@ -25,6 +25,8 @@ export function ModelCarousel({ models, ratings, onRate, onSubmit }) {
   const isLast        = index === models.length - 1;
   const currentRating = ratings[current._id] || 0;
   const modelId       = extractModelId(current.sketchfabEmbedUrl);
+  const ratedCount    = models.filter((m) => (ratings[m._id] || 0) > 0).length;
+  const allRated      = ratedCount === models.length;
 
   useEffect(() => {
     setSfApi(null); setAnimations([]); setActiveAnim(null);
@@ -55,8 +57,6 @@ export function ModelCarousel({ models, ratings, onRate, onSubmit }) {
     else { sfApi.setCurrentAnimationByUID(uid); sfApi.play(); setActiveAnim(uid); }
   };
 
-  const H = 'clamp(520px, 72vh, 850px)';
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
@@ -64,16 +64,12 @@ export function ModelCarousel({ models, ratings, onRate, onSubmit }) {
         {index + 1} of {models.length}
       </p>
 
-      {/* Side-by-side */}
-      <div style={{ display: 'flex', gap: 20, alignItems: 'stretch' }}>
+      {/* Side-by-side on desktop, stacked on phones (see .vote-split CSS) */}
+      <div className="vote-split">
 
-        {/* Left — 3D viewer (68%) */}
-        <div style={{ flex: '0 0 68%' }}>
-          <div style={{
-            height: H, minHeight: 520,
-            borderRadius: 'var(--radius-lg)', overflow: 'hidden',
-            background: '#000', boxShadow: 'var(--shadow-lg)',
-          }}>
+        {/* 3D viewer */}
+        <div className="vote-viewer">
+          <div className="vote-viewer-frame">
             <iframe
               key={current._id}
               ref={iframeRef}
@@ -85,13 +81,8 @@ export function ModelCarousel({ models, ratings, onRate, onSubmit }) {
           </div>
         </div>
 
-        {/* Right — controls (32%) */}
-        <div style={{
-          flex: '1 1 32%',
-          height: H, minHeight: 520,
-          overflowY: 'auto',
-          display: 'flex', flexDirection: 'column',
-        }}>
+        {/* Controls */}
+        <div className="vote-panel">
 
           {/* Name + description */}
           <div style={{ marginBottom: 20 }}>
@@ -142,20 +133,29 @@ export function ModelCarousel({ models, ratings, onRate, onSubmit }) {
       </div>
 
       {/* Navigation */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         {!isFirst
           ? <button className="btn btn-neutral" onClick={() => setIndex(i => i - 1)}>← Previous</button>
           : <div style={{ width: 130 }} />
         }
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: allRated ? 'var(--brand)' : 'var(--text-muted)' }}>
+          {ratedCount} of {models.length} rated
+        </span>
         {!isLast && (
           <button className="btn btn-primary" onClick={() => setIndex(i => i + 1)}>Next →</button>
         )}
         {isLast && (
-          <button className="btn btn-primary" onClick={onSubmit} disabled={currentRating === 0}>
+          <button className="btn btn-primary" onClick={onSubmit} disabled={!allRated}>
             Submit Ratings
           </button>
         )}
       </div>
+
+      {isLast && !allRated && (
+        <p className="body-text" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+          Rate every prototype before submitting — use ← Previous to go back to the ones you skipped.
+        </p>
+      )}
 
     </div>
   );

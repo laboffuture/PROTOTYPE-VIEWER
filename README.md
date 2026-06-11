@@ -12,14 +12,18 @@ Built for **LOF (Lab of Future)** as a standalone module that can also be driven
 - Large interactive 3D viewer (Sketchfab embed, 68% of screen) with autorotate
 - Animation play/pause buttons driven by the Sketchfab Viewer API
 - Model name + description panel, star rating — all on one screen, no scrolling
+- **Every prototype must be rated before submitting** — enforced in the UI and again on the server
 - One submission per device (localStorage UUID + unique DB index — no duplicate votes)
+- Responsive: viewer and controls stack vertically on phones
 - After submitting: a simple thank-you. **Students never see results.**
 
 ### Admin side (`/admin`)
 - Single common admin login (username + password from environment, JWT 24h)
 - Professional sidebar layout — batches list → dedicated page per batch
 - Create batches, add/remove models (locked while voting is open)
-- Open/close voting with one click, copy shareable vote link
+- **Create a batch from the model library** — pick a source batch and tick the prototypes to copy in
+- Open/close voting with one click (opening requires at least one prototype), copy shareable vote link
+- Delete a closed batch along with its models and votes
 - **Live results page** — auto-refreshes every 5s: total votes, leading prototype, average-rating bars, per-star histograms
 
 ---
@@ -119,8 +123,9 @@ Built for **LOF (Lab of Future)** as a standalone module that can also be driven
 |---|---|---|
 | `POST` | `/api/admin/login` | `{ username, password }` → `{ token }` |
 | `GET` | `/api/admin/sessions` | List all batches with model counts |
-| `POST` | `/api/admin/sessions` | Create batch: `{ name }` |
-| `PATCH` | `/api/admin/sessions/:id/status` | `{ status: "open" \| "closed" }` |
+| `POST` | `/api/admin/sessions` | Create batch: `{ name, copyModelIds? }` — optionally copy existing models (e.g. from a library batch) |
+| `DELETE` | `/api/admin/sessions/:id` | Delete a closed batch with its models and votes |
+| `PATCH` | `/api/admin/sessions/:id/status` | `{ status: "open" \| "closed" }` — opening requires ≥ 1 model |
 | `POST` | `/api/admin/sessions/:id/models` | Add model: `{ name, sketchfabEmbedUrl, description? }` |
 | `DELETE` | `/api/admin/sessions/:id/models/:modelId` | Remove model (batch must be closed) |
 | `GET` | `/api/admin/sessions/:id/results` | Live results: avg rating, vote count, star distribution per model |

@@ -21,6 +21,10 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 app.use((err, req, res, next) => {
+  // Malformed ObjectIds in URLs/bodies are "not found", not server errors
+  if (err.name === 'CastError') {
+    return res.status(404).json({ error: 'Not found' });
+  }
   console.error(err.stack);
   res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
 });

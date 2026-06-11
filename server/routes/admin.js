@@ -1,5 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const Session = require('../models/Session');
 const Model = require('../models/Model');
 const Vote = require('../models/Vote');
@@ -37,13 +38,57 @@ router.get('/sessions', requireAuth, async (req, res, next) => {
 });
 
 // POST /api/admin/sessions — create a new session
-// Body: { name }
+// Body: { name, copyModelIds? } — copyModelIds copies existing models
+// (e.g. from a library batch) into the new batch, in the order given.
 router.post('/sessions', requireAuth, async (req, res, next) => {
   try {
-    const { name } = req.body;
+    const { name, copyModelIds } = req.body;
     if (!name) return res.status(400).json({ error: 'name required' });
+
+    let sources = [];
+    if (copyModelIds !== undefined) {
+      if (!Array.isArray(copyModelIds) || copyModelIds.some((id) => !mongoose.isValidObjectId(id))) {
+        return res.status(400).json({ error: 'copyModelIds must be an array of valid model ids' });
+      }
+      const found = await Model.find({ _id: { $in: copyModelIds } });
+      const byId = new Map(found.map((m) => [m._id.toString(), m]));
+      sources = copyModelIds.map((id) => byId.get(String(id)));
+      if (sources.some((m) => !m)) {
+        return res.status(400).json({ error: 'One or more selected prototypes were not found' });
+      }
+    }
+
     const session = await Session.create({ name });
-    res.status(201).json({ id: session._id, name: session.name, status: session.status });
+    if (sources.length) {
+      await Model.create(sources.map((m, i) => ({
+        sessionId: session._id,
+        name: m.name,
+        sketchfabEmbedUrl: m.sketchfabEmbedUrl,
+        description: m.description,
+        order: i + 1,
+      })));
+    }
+    res.status(201).json({
+      id: session._id,
+      name: session.name,
+      status: session.status,
+      modelCount: sources.length,
+    });
+  } catch (err) { next(err); }
+});
+
+// DELETE /api/admin/sessions/:id — delete a batch with its models and votes
+router.delete('/sessions/:id', requireAuth, async (req, res, next) => {
+  try {
+    const session = await Session.findById(req.params.id);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    if (session.status === 'open') {
+      return res.status(400).json({ error: 'Close voting before deleting the batch' });
+    }
+    await Session.findByIdAndDelete(session._id);
+    await Model.deleteMany({ sessionId: session._id });
+    await Vote.deleteMany({ sessionId: session._id });
+    res.status(204).send();
   } catch (err) { next(err); }
 });
 
@@ -53,6 +98,12 @@ router.patch('/sessions/:id/status', requireAuth, async (req, res, next) => {
     const { status } = req.body;
     if (!['open', 'closed'].includes(status)) {
       return res.status(400).json({ error: 'status must be open or closed' });
+    }
+    if (status === 'open') {
+      const modelCount = await Model.countDocuments({ sessionId: req.params.id });
+      if (modelCount === 0) {
+        return res.status(400).json({ error: 'Add at least one prototype before opening voting' });
+      }
     }
     const update = { status };
     if (status === 'closed') update.closedAt = new Date();
