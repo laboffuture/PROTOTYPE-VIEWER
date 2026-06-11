@@ -3,6 +3,7 @@ import { VotePage } from './pages/VotePage';
 import { AdminLogin } from './pages/AdminLogin';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { SessionDetail } from './pages/SessionDetail';
+import { PrototypeLibrary } from './pages/PrototypeLibrary';
 import './styles/lof-design-system.css';
 
 export function App() {
@@ -13,6 +14,7 @@ export function App() {
         <Route path="/admin" element={<AdminLogin />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/sessions/:id" element={<SessionDetail />} />
+        <Route path="/admin/prototypes" element={<PrototypeLibrary />} />
         <Route path="/" element={<Navigate to="/admin" replace />} />
       </Routes>
     </BrowserRouter>

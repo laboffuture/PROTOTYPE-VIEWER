@@ -8,6 +8,7 @@ const app = require('../index');
 const Session = require('../models/Session');
 const Model = require('../models/Model');
 const Vote = require('../models/Vote');
+const LibraryModel = require('../models/LibraryModel');
 
 const adminToken = () => jwt.sign({ role: 'admin' }, 'test-secret', { expiresIn: '1h' });
 
@@ -60,10 +61,9 @@ describe('POST /api/admin/sessions — create batch', () => {
     expect(res.status).toBe(401);
   });
 
-  it('copies selected models from another batch, preserving picked order', async () => {
-    const library = await Session.create({ name: 'Library' });
-    const m1 = await Model.create({ sessionId: library._id, name: 'Rover', sketchfabEmbedUrl: 'https://sketchfab.com/models/a/embed', description: 'd1', order: 1 });
-    const m2 = await Model.create({ sessionId: library._id, name: 'Glider', sketchfabEmbedUrl: 'https://sketchfab.com/models/b/embed', description: 'd2', order: 2 });
+  it('copies selected library prototypes, preserving picked order', async () => {
+    const m1 = await LibraryModel.create({ name: 'Rover', sketchfabEmbedUrl: 'https://sketchfab.com/models/a/embed', description: 'd1' });
+    const m2 = await LibraryModel.create({ name: 'Glider', sketchfabEmbedUrl: 'https://sketchfab.com/models/b/embed', description: 'd2' });
 
     const res = await request(app)
       .post('/api/admin/sessions')
@@ -77,8 +77,8 @@ describe('POST /api/admin/sessions — create batch', () => {
     expect(copies[0].name).toBe('Glider');
     expect(copies[0].order).toBe(1);
     expect(copies[1].name).toBe('Rover');
-    // originals untouched
-    expect(await Model.countDocuments({ sessionId: library._id })).toBe(2);
+    // library untouched
+    expect(await LibraryModel.countDocuments()).toBe(2);
   });
 
   it('rejects copyModelIds containing unknown model', async () => {
@@ -264,6 +264,65 @@ describe('DELETE /api/admin/sessions/:id/models/:modelId', () => {
       .delete(`/api/admin/sessions/${session._id}/models/${model._id}`)
       .set('Authorization', `Bearer ${adminToken()}`);
     expect(res.status).toBe(400);
+  });
+});
+
+describe('Prototype library CRUD', () => {
+  it('adds, lists, edits, and deletes a library prototype', async () => {
+    const create = await request(app)
+      .post('/api/admin/library')
+      .set('Authorization', `Bearer ${adminToken()}`)
+      .send({ name: 'Rover', sketchfabEmbedUrl: 'https://sketchfab.com/models/lib1/embed', description: 'A rover.' });
+    expect(create.status).toBe(201);
+    const id = create.body.id;
+
+    const list = await request(app)
+      .get('/api/admin/library')
+      .set('Authorization', `Bearer ${adminToken()}`);
+    expect(list.status).toBe(200);
+    expect(list.body.prototypes).toHaveLength(1);
+    expect(list.body.prototypes[0].name).toBe('Rover');
+
+    const edit = await request(app)
+      .patch(`/api/admin/library/${id}`)
+      .set('Authorization', `Bearer ${adminToken()}`)
+      .send({ description: 'An updated rover.' });
+    expect(edit.status).toBe(200);
+    expect(edit.body.description).toBe('An updated rover.');
+    expect(edit.body.name).toBe('Rover');
+
+    const del = await request(app)
+      .delete(`/api/admin/library/${id}`)
+      .set('Authorization', `Bearer ${adminToken()}`);
+    expect(del.status).toBe(204);
+    expect(await LibraryModel.countDocuments()).toBe(0);
+  });
+
+  it('rejects duplicate embed URL', async () => {
+    await LibraryModel.create({ name: 'A', sketchfabEmbedUrl: 'https://sketchfab.com/models/dup/embed' });
+    const res = await request(app)
+      .post('/api/admin/library')
+      .set('Authorization', `Bearer ${adminToken()}`)
+      .send({ name: 'B', sketchfabEmbedUrl: 'https://sketchfab.com/models/dup/embed' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/already in the library/i);
+  });
+
+  it('rejects without JWT', async () => {
+    const res = await request(app).get('/api/admin/library');
+    expect(res.status).toBe(401);
+  });
+
+  it('deleting a library prototype does not touch batch copies', async () => {
+    const proto = await LibraryModel.create({ name: 'Rover', sketchfabEmbedUrl: 'https://sketchfab.com/models/keep/embed' });
+    const create = await request(app)
+      .post('/api/admin/sessions')
+      .set('Authorization', `Bearer ${adminToken()}`)
+      .send({ name: 'Round', copyModelIds: [proto._id.toString()] });
+    await request(app)
+      .delete(`/api/admin/library/${proto._id}`)
+      .set('Authorization', `Bearer ${adminToken()}`);
+    expect(await Model.countDocuments({ sessionId: create.body.id })).toBe(1);
   });
 });
 

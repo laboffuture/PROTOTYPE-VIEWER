@@ -24,6 +24,14 @@ const LogOutIcon = (props) => (
   </svg>
 );
 
+const BoxIcon = (props) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+    <line x1="12" y1="22.08" x2="12" y2="12" />
+  </svg>
+);
+
 const SIDEBAR_W = 256;
 
 export function AdminLayout({ crumb, children }) {
@@ -33,6 +41,7 @@ export function AdminLayout({ crumb, children }) {
   const batchesActive =
     location.pathname.startsWith('/admin/dashboard') ||
     location.pathname.startsWith('/admin/sessions');
+  const libraryActive = location.pathname.startsWith('/admin/prototypes');
 
   const logout = () => {
     localStorage.removeItem('admin_token');
@@ -72,6 +81,9 @@ export function AdminLayout({ crumb, children }) {
           <p className="label" style={{ padding: '0 12px', marginBottom: 8 }}>Review</p>
           <Link to="/admin/dashboard" className={`nav-item ${batchesActive ? 'active' : ''}`}>
             <LayersIcon /> Batches
+          </Link>
+          <Link to="/admin/prototypes" className={`nav-item ${libraryActive ? 'active' : ''}`} style={{ marginTop: 4 }}>
+            <BoxIcon /> Prototypes
           </Link>
         </nav>
 

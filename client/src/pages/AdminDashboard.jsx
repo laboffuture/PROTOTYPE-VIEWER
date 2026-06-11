@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 
 const API = import.meta.env.VITE_API_URL || '';
@@ -14,8 +14,7 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
-  const [copySourceId, setCopySourceId] = useState('');
-  const [sourceModels, setSourceModels] = useState([]);
+  const [library, setLibrary] = useState([]);
   const [selectedModelIds, setSelectedModelIds] = useState([]);
 
   const authHeaders = {
@@ -25,10 +24,15 @@ export function AdminDashboard() {
 
   const loadSessions = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/admin/sessions`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.status === 401) { navigate('/admin'); return; }
-      const data = await res.json();
+      const [sessionsRes, libraryRes] = await Promise.all([
+        fetch(`${API}/api/admin/sessions`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/api/admin/library`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (sessionsRes.status === 401) { navigate('/admin'); return; }
+      const data = await sessionsRes.json();
+      const libData = await libraryRes.json().catch(() => ({}));
       setSessions(data.sessions || []);
+      setLibrary(libData.prototypes || []);
     } catch {
       setError('Failed to load batches. Check your connection and refresh.');
     }
@@ -39,25 +43,29 @@ export function AdminDashboard() {
     loadSessions().finally(() => setLoading(false));
   }, [token, navigate, loadSessions]);
 
-  // Pick a source batch to copy prototypes from (e.g. the model library)
-  const selectCopySource = async (sourceId) => {
-    setCopySourceId(sourceId);
-    setSelectedModelIds([]);
-    if (!sourceId) { setSourceModels([]); return; }
-    try {
-      const res = await fetch(`${API}/api/sessions/${sourceId}`);
-      const data = await res.json();
-      setSourceModels(data.models || []);
-    } catch {
-      setSourceModels([]);
-      setError('Failed to load prototypes from that batch.');
-    }
-  };
-
+  // Selection order is kept — it becomes the order students see
   const toggleModel = (modelId) => {
     setSelectedModelIds((prev) =>
       prev.includes(modelId) ? prev.filter((id) => id !== modelId) : [...prev, modelId]
     );
+  };
+
+  const deleteBatch = async (s) => {
+    const confirmed = window.confirm(
+      `Delete the batch "${s.name}" along with all its prototypes and votes? This cannot be undone.`
+    );
+    if (!confirmed) return;
+    setError('');
+    const res = await fetch(`${API}/api/admin/sessions/${s.id}`, {
+      method: 'DELETE',
+      headers: authHeaders,
+    });
+    if (res.status === 401) { navigate('/admin'); return; }
+    if (res.ok) loadSessions();
+    else {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || 'Failed to delete batch.');
+    }
   };
 
   const createSession = async (e) => {
@@ -80,8 +88,6 @@ export function AdminDashboard() {
       }
       const created = await res.json();
       setNewSessionName('');
-      setCopySourceId('');
-      setSourceModels([]);
       setSelectedModelIds([]);
       navigate(`/admin/sessions/${created.id}`);
     } catch {
@@ -145,63 +151,83 @@ export function AdminDashboard() {
             </button>
           </div>
 
-          {/* Optional: copy prototypes from an existing batch (e.g. the library) */}
-          {sessions.some((s) => s.modelCount > 0) && (
-            <div style={{ marginTop: 16 }}>
-              <label className="label">COPY PROTOTYPES FROM (optional)</label>
-              <select
-                className="input"
-                value={copySourceId}
-                onChange={(e) => selectCopySource(e.target.value)}
-                style={{ maxWidth: 420, display: 'block' }}
-              >
-                <option value="">— start empty —</option>
-                {sessions.filter((s) => s.modelCount > 0).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.modelCount} prototype{s.modelCount !== 1 ? 's' : ''})
-                  </option>
-                ))}
-              </select>
-
-              {copySourceId && sourceModels.length > 0 && (
-                <div style={{ marginTop: 12 }}>
-                  <p className="body-text" style={{ color: 'var(--text-muted)', marginBottom: 8 }}>
-                    Tick the prototypes to include — {selectedModelIds.length} selected
-                  </p>
-                  <div style={{
-                    display: 'flex', flexWrap: 'wrap', gap: 8,
-                    maxHeight: 220, overflowY: 'auto', padding: 4,
-                  }}>
-                    {sourceModels.map((m) => {
-                      const checked = selectedModelIds.includes(m._id);
-                      return (
-                        <label
-                          key={m._id}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 8,
-                            padding: '6px 12px', cursor: 'pointer',
-                            borderRadius: 'var(--radius-lg)',
-                            border: `2px solid ${checked ? 'var(--brand-border)' : 'var(--border)'}`,
-                            background: checked ? 'var(--brand-bg)' : 'transparent',
-                            fontFamily: 'var(--font-body)', fontSize: 14,
-                            color: checked ? 'var(--brand)' : 'var(--text-secondary)',
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleModel(m._id)}
-                            style={{ accentColor: 'var(--brand)' }}
-                          />
-                          {m.name}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+          {/* Prototype selection — tap tiles from the library */}
+          <div style={{ marginTop: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+              <label className="label">SELECT PROTOTYPES FROM LIBRARY</label>
+              <span style={{
+                fontFamily: 'var(--font-mono)', fontSize: 11,
+                color: selectedModelIds.length ? 'var(--brand)' : 'var(--text-muted)',
+              }}>
+                {selectedModelIds.length} SELECTED
+              </span>
             </div>
-          )}
+
+            {library.length === 0 ? (
+              <p className="body-text" style={{ color: 'var(--text-muted)' }}>
+                The library is empty — add prototypes on the{' '}
+                <Link to="/admin/prototypes" style={{ color: 'var(--brand)' }}>Prototypes</Link> page first,
+                or create an empty batch and add models manually.
+              </p>
+            ) : (
+              <div style={{
+                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
+                gap: 10, maxHeight: 320, overflowY: 'auto', padding: 4,
+              }}>
+                {library.map((p) => {
+                  const pickIndex = selectedModelIds.indexOf(p.id);
+                  const picked = pickIndex !== -1;
+                  return (
+                    <button
+                      type="button"
+                      key={p.id}
+                      onClick={() => toggleModel(p.id)}
+                      style={{
+                        position: 'relative', textAlign: 'left', cursor: 'pointer',
+                        padding: '12px 14px', borderRadius: 'var(--radius-lg)',
+                        border: `2px solid ${picked ? 'var(--brand)' : 'var(--border)'}`,
+                        background: picked ? 'var(--brand-bg)' : 'var(--bg-white)',
+                        boxShadow: picked ? 'var(--brand-glow)' : 'none',
+                        transition: 'border-color 150ms, background 150ms, box-shadow 150ms',
+                      }}
+                    >
+                      {picked && (
+                        <span style={{
+                          position: 'absolute', top: 8, right: 8,
+                          minWidth: 20, height: 20, padding: '0 5px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          borderRadius: 10, background: 'var(--brand)', color: '#fff',
+                          fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600,
+                        }}>
+                          {pickIndex + 1}
+                        </span>
+                      )}
+                      <p style={{
+                        fontFamily: 'var(--font-heading)', fontSize: 12, fontWeight: 700,
+                        textTransform: 'uppercase', letterSpacing: '0.04em',
+                        color: picked ? 'var(--brand)' : 'var(--text-primary)',
+                        marginBottom: 4, paddingRight: picked ? 24 : 0,
+                      }}>
+                        {p.name}
+                      </p>
+                      <p className="body-text" style={{
+                        fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5,
+                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                      }}>
+                        {p.description || '—'}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {selectedModelIds.length > 0 && (
+              <p className="body-text" style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
+                The numbers show the order students will see them in. Tap again to deselect.
+              </p>
+            )}
+          </div>
         </form>
 
         {/* Batch list */}
@@ -252,6 +278,19 @@ export function AdminDashboard() {
                 >
                   OPEN →
                 </button>
+                {s.status !== 'open' && (
+                  <button
+                    className="btn"
+                    style={{
+                      fontSize: 10, padding: '6px 14px',
+                      background: 'var(--accent-bg)', border: '2px solid var(--accent-border)', color: 'var(--accent)',
+                    }}
+                    onClick={() => deleteBatch(s)}
+                    title="Delete this batch"
+                  >
+                    DELETE
+                  </button>
+                )}
               </div>
             </div>
           ))

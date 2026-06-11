@@ -1,13 +1,14 @@
-// Seed Atlas with the full LOF prototype library (all Sketchfab models).
-// Idempotent — safe to re-run: matches the batch by name and each model
-// by its embed URL, so nothing is ever duplicated.
+// Seed the prototype library (LibraryModel collection) with all LOF models.
+// Idempotent — safe to re-run: prototypes are matched by embed URL, so
+// nothing is ever duplicated. Also migrates away the old "LOF Prototype
+// Library" batch from before the library was a first-class collection.
 // Run: node seed-library.js
 require('dotenv').config();
 const mongoose = require('mongoose');
 const Session = require('./models/Session');
 const Model = require('./models/Model');
-
-const BATCH_NAME = 'LOF Prototype Library';
+const Vote = require('./models/Vote');
+const LibraryModel = require('./models/LibraryModel');
 
 const MODELS = [
   { name: '3DOF Robotic Arm',                id: 'eb0aeee7a891400b8ca7a66ad03613e4', description: 'A 3-degree-of-freedom robotic arm prototype.' },
@@ -32,37 +33,30 @@ const MODELS = [
 async function seed() {
   await mongoose.connect(process.env.MONGODB_URI);
 
-  let session = await Session.findOne({ name: BATCH_NAME });
-  if (session) {
-    console.log('Batch already exists:', session._id.toString());
-  } else {
-    session = await Session.create({ name: BATCH_NAME, status: 'closed' });
-    console.log('Created batch:', session._id.toString());
-  }
-
   let added = 0;
   let skipped = 0;
-  for (let i = 0; i < MODELS.length; i++) {
-    const m = MODELS[i];
+  for (const m of MODELS) {
     const url = `https://sketchfab.com/models/${m.id}/embed`;
-    const exists = await Model.findOne({ sessionId: session._id, sketchfabEmbedUrl: url });
+    const exists = await LibraryModel.findOne({ sketchfabEmbedUrl: url });
     if (exists) {
       skipped++;
       continue;
     }
-    await Model.create({
-      sessionId: session._id,
-      name: m.name,
-      sketchfabEmbedUrl: url,
-      description: m.description,
-      order: i + 1,
-    });
+    await LibraryModel.create({ name: m.name, sketchfabEmbedUrl: url, description: m.description });
     added++;
     console.log(`  + ${m.name}`);
   }
+  console.log(`Library seeded. Added ${added}, skipped ${skipped} (already present).`);
 
-  console.log(`Done. Added ${added}, skipped ${skipped} (already present).`);
-  console.log('Vote link: http://localhost:5173/vote/' + session._id.toString());
+  // Migration: remove the pre-library-era storage batch, if it exists
+  const oldBatch = await Session.findOne({ name: 'LOF Prototype Library' });
+  if (oldBatch) {
+    await Model.deleteMany({ sessionId: oldBatch._id });
+    await Vote.deleteMany({ sessionId: oldBatch._id });
+    await Session.findByIdAndDelete(oldBatch._id);
+    console.log('Migrated: removed the old "LOF Prototype Library" batch (models now live in the library).');
+  }
+
   await mongoose.connection.close();
 }
 

@@ -19,11 +19,12 @@ Built for **LOF (Lab of Future)** as a standalone module that can also be driven
 
 ### Admin side (`/admin`)
 - Single common admin login (username + password from environment, JWT 24h)
-- Professional sidebar layout — batches list → dedicated page per batch
-- Create batches, add/remove models (locked while voting is open)
-- **Create a batch from the model library** — pick a source batch and tick the prototypes to copy in
+- Professional sidebar layout — Batches and Prototypes sections
+- **Prototype library** — a master list of all models (name, embed URL, summary) managed on its own page; batches receive copies, so editing the library never affects a running review
+- **Create a batch by tapping prototype tiles** — selection order becomes the order students see; copies go into the new batch
+- Add/remove models per batch manually too (locked while voting is open)
 - Open/close voting with one click (opening requires at least one prototype), copy shareable vote link
-- Delete a closed batch along with its models and votes
+- Delete a closed batch along with its models and votes — from the list or the batch page
 - **Live results page** — auto-refreshes every 5s: total votes, leading prototype, average-rating bars, per-star histograms
 
 ---
@@ -90,17 +91,19 @@ Built for **LOF (Lab of Future)** as a standalone module that can also be driven
 │       ├── pages/
 │       │   ├── VotePage.jsx         # Student voting flow
 │       │   ├── AdminLogin.jsx       # Username/password → JWT
-│       │   ├── AdminDashboard.jsx   # Batches list + create batch
+│       │   ├── AdminDashboard.jsx   # Batches list + create batch from library tiles
+│       │   ├── PrototypeLibrary.jsx # Master prototype library (add/edit/remove)
 │       │   └── SessionDetail.jsx    # Per-batch: live results + model management
 │       └── styles/
 │           └── lof-design-system.css  # All design tokens & component classes
 ├── server/                      # Express API
 │   ├── index.js                 # App wiring, CORS, static serving in production
 │   ├── db.js                    # Mongoose connection
-│   ├── models/                  # Session, Model (SessionModel), Vote schemas
+│   ├── models/                  # Session, Model (SessionModel), Vote, LibraryModel schemas
 │   ├── routes/                  # admin.js, sessions.js, votes.js
 │   ├── middleware/auth.js       # JWT verification
 │   ├── seed.js                  # One-time seeding of demo batch into Atlas
+│   ├── seed-library.js          # Seed the prototype library with all LOF models
 │   └── demo.js                  # Zero-config demo (in-memory MongoDB)
 └── docs/
     └── STYLE-GATE.md            # Complete visual style guide
@@ -123,9 +126,13 @@ Built for **LOF (Lab of Future)** as a standalone module that can also be driven
 |---|---|---|
 | `POST` | `/api/admin/login` | `{ username, password }` → `{ token }` |
 | `GET` | `/api/admin/sessions` | List all batches with model counts |
-| `POST` | `/api/admin/sessions` | Create batch: `{ name, copyModelIds? }` — optionally copy existing models (e.g. from a library batch) |
+| `POST` | `/api/admin/sessions` | Create batch: `{ name, copyModelIds? }` — optionally copy prototypes from the library |
 | `DELETE` | `/api/admin/sessions/:id` | Delete a closed batch with its models and votes |
 | `PATCH` | `/api/admin/sessions/:id/status` | `{ status: "open" \| "closed" }` — opening requires ≥ 1 model |
+| `GET` | `/api/admin/library` | List all library prototypes |
+| `POST` | `/api/admin/library` | Add prototype: `{ name, sketchfabEmbedUrl, description? }` |
+| `PATCH` | `/api/admin/library/:id` | Edit a library prototype |
+| `DELETE` | `/api/admin/library/:id` | Remove from library (batch copies unaffected) |
 | `POST` | `/api/admin/sessions/:id/models` | Add model: `{ name, sketchfabEmbedUrl, description? }` |
 | `DELETE` | `/api/admin/sessions/:id/models/:modelId` | Remove model (batch must be closed) |
 | `GET` | `/api/admin/sessions/:id/results` | Live results: avg rating, vote count, star distribution per model |
