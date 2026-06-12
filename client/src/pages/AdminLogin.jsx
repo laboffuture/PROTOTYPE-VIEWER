@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import lofLogo from '../assets/lof-logo.png';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -39,6 +40,11 @@ export function AdminLogin() {
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ width: '100%', maxWidth: 400 }}>
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <img
+            src={lofLogo}
+            alt="LOF — Lab of Future"
+            style={{ width: 180, maxWidth: '60%', height: 'auto', marginBottom: 20 }}
+          />
           <p className="eyebrow" style={{ marginBottom: 8 }}>3D MODEL REVIEW</p>
           <div style={{ width: 40, height: 2, background: 'var(--brand)', margin: '0 auto 16px' }} />
           <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: 22, fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
