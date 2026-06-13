@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { AdminLayout } from '../components/AdminLayout';
 import { voteLink, whatsappShareUrl } from '../lib/share';
-import { STAR_COLORS } from '../lib/chartColors';
 
 const API = import.meta.env.VITE_API_URL || '';
 const REFRESH_MS = 5000;
@@ -70,7 +69,8 @@ function ResultBar({ rank, result, isLeader }) {
               <div style={{
                 width: 14,
                 height: Math.max(3, (count / maxDist) * 30),
-                background: count > 0 ? STAR_COLORS[i] : 'var(--border)',
+                background: count > 0 ? 'var(--brand)' : 'var(--border)',
+                opacity: count > 0 ? 0.35 + (i / 4) * 0.65 : 1,
                 borderRadius: 2,
                 transition: 'height 0.4s ease',
               }} />

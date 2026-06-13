@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import { DonutChart } from '../components/DonutChart';
-import { STAR_COLORS } from '../lib/chartColors';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -37,7 +36,8 @@ function MiniHistogram({ distribution }) {
           <div style={{
             width: '100%', maxWidth: 20,
             height: Math.max(3, (count / max) * 34),
-            background: count > 0 ? STAR_COLORS[i] : 'var(--border)',
+            background: count > 0 ? 'var(--brand)' : 'var(--border)',
+            opacity: count > 0 ? 0.3 + (i / 4) * 0.7 : 1,
             borderRadius: 2,
           }} />
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-muted)' }}>{i + 1}★</span>
