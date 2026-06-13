@@ -26,6 +26,7 @@ Built for **LOF (Lab of Future)** as a standalone module that can also be driven
 - Open/close voting with one click (opening requires at least one prototype), copy shareable vote link
 - Delete a closed batch along with its models and votes — from the list or the batch page
 - **Live results page** — auto-refreshes every 5s: total votes, leading prototype, average-rating bars, per-star histograms
+- **Analytics page** — program-wide view across every batch: per-prototype donut charts + star histograms (grouped by model, so one product is one row even across several reviews), an average-rating comparison, and a per-batch "opened → voted" participation funnel
 
 ---
 
@@ -53,6 +54,8 @@ Built for **LOF (Lab of Future)** as a standalone module that can also be driven
 │   sessionmodels   models per batch (Sketchfab URL, desc)    │
 │   votes           one doc per rating; unique index on       │
 │                   {sessionId, modelId, voterUUID}           │
+│   views           one doc per device that opened a batch;    │
+│                   unique {sessionId, voterUUID} (open count) │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -71,6 +74,7 @@ Built for **LOF (Lab of Future)** as a standalone module that can also be driven
 
 - **Vote integrity** — each browser gets a persistent UUID (localStorage); the DB enforces a compound unique index `{sessionId, modelId, voterUUID}`, so duplicates are rejected server-side, not just hidden in the UI.
 - **Results are admin-only** — there is no public results endpoint. Students get a thank-you screen only.
+- **Open-tracking is forward-only** — the student page pings a lightweight beacon on load, deduped per device, so the analytics "opens" funnel counts from the day it deployed onward. Votes, by contrast, are aggregated retroactively from existing data.
 - **Models are locked while voting is open** — prevents mid-vote changes that would skew averages.
 - **Admin credentials live in env, not the DB** — one common login, zero user-management overhead. Swap to DB-backed accounts only when multiple admins are needed.
 - **One process in production** — Express serves the built React app, so a single port runs everything.
@@ -87,19 +91,21 @@ Built for **LOF (Lab of Future)** as a standalone module that can also be driven
 │       │   ├── AdminLayout.jsx      # Sidebar + topbar shell for admin pages
 │       │   ├── ModelCarousel.jsx    # 3D viewer + animations + rating (student)
 │       │   ├── StarRating.jsx       # Accessible 1–5 star input
+│       │   ├── DonutChart.jsx       # SVG donut of a 1–5★ distribution (no chart lib)
 │       │   └── RankingsTable.jsx    # Sortable results table
 │       ├── pages/
-│       │   ├── VotePage.jsx         # Student voting flow
+│       │   ├── VotePage.jsx         # Student voting flow (+ open beacon)
 │       │   ├── AdminLogin.jsx       # Username/password → JWT
 │       │   ├── AdminDashboard.jsx   # Batches list + create batch from library tiles
 │       │   ├── PrototypeLibrary.jsx # Master prototype library (add/edit/remove)
+│       │   ├── AnalyticsDashboard.jsx # Program-wide analytics across all batches
 │       │   └── SessionDetail.jsx    # Per-batch: live results + model management
 │       └── styles/
 │           └── lof-design-system.css  # All design tokens & component classes
 ├── server/                      # Express API
 │   ├── index.js                 # App wiring, CORS, static serving in production
 │   ├── db.js                    # Mongoose connection
-│   ├── models/                  # Session, Model (SessionModel), Vote, LibraryModel schemas
+│   ├── models/                  # Session, Model (SessionModel), Vote, LibraryModel, View schemas
 │   ├── routes/                  # admin.js, sessions.js, votes.js
 │   ├── middleware/auth.js       # JWT verification
 │   ├── seed.js                  # One-time seeding of demo batch into Atlas
@@ -118,6 +124,7 @@ Built for **LOF (Lab of Future)** as a standalone module that can also be driven
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/api/sessions/:id` | Batch info + its models (no results) |
+| `POST` | `/api/sessions/:id/open` | Record an open: `{ voterUUID }` — deduped per device, feeds the analytics funnel |
 | `POST` | `/api/votes` | Submit ratings: `{ sessionId, voterUUID, ratings: [{ modelId, rating }] }` |
 
 ### Admin (require `Authorization: Bearer <token>`)
@@ -136,6 +143,7 @@ Built for **LOF (Lab of Future)** as a standalone module that can also be driven
 | `POST` | `/api/admin/sessions/:id/models` | Add model: `{ name, sketchfabEmbedUrl, description? }` |
 | `DELETE` | `/api/admin/sessions/:id/models/:modelId` | Remove model (batch must be closed) |
 | `GET` | `/api/admin/sessions/:id/results` | Live results: avg rating, vote count, star distribution per model |
+| `GET` | `/api/admin/analytics` | Program-wide analytics: totals, per-prototype (grouped by embed URL), per-batch funnel |
 
 ### Integrating from a parent dashboard
 

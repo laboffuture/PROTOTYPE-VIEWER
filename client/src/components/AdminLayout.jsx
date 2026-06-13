@@ -32,6 +32,14 @@ const BoxIcon = (props) => (
   </svg>
 );
 
+const BarChartIcon = (props) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <line x1="6" y1="20" x2="6" y2="14" />
+    <line x1="12" y1="20" x2="12" y2="8" />
+    <line x1="18" y1="20" x2="18" y2="4" />
+  </svg>
+);
+
 const SIDEBAR_W = 256;
 
 export function AdminLayout({ crumb, children }) {
@@ -42,6 +50,7 @@ export function AdminLayout({ crumb, children }) {
     location.pathname.startsWith('/admin/dashboard') ||
     location.pathname.startsWith('/admin/sessions');
   const libraryActive = location.pathname.startsWith('/admin/prototypes');
+  const analyticsActive = location.pathname.startsWith('/admin/analytics');
 
   const logout = () => {
     localStorage.removeItem('admin_token');
@@ -84,6 +93,9 @@ export function AdminLayout({ crumb, children }) {
           </Link>
           <Link to="/admin/prototypes" className={`nav-item ${libraryActive ? 'active' : ''}`} style={{ marginTop: 4 }}>
             <BoxIcon /> Prototypes
+          </Link>
+          <Link to="/admin/analytics" className={`nav-item ${analyticsActive ? 'active' : ''}`} style={{ marginTop: 4 }}>
+            <BarChartIcon /> Analytics
           </Link>
         </nav>
 

@@ -27,6 +27,13 @@ export function VotePage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    // Record this open (fire-and-forget; the server dedupes per device).
+    fetch(`${API}/api/sessions/${sessionId}/open`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voterUUID: getOrCreateUUID() }),
+    }).catch(() => {});
+
     if (localStorage.getItem(`submitted_${sessionId}`)) {
       setSubmitted(true);
       setLoading(false);

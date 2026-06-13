@@ -5,6 +5,7 @@ const Session = require('../models/Session');
 const Model = require('../models/Model');
 const Vote = require('../models/Vote');
 const LibraryModel = require('../models/LibraryModel');
+const View = require('../models/View');
 const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -251,6 +252,101 @@ router.get('/sessions/:id/results', requireAuth, async (req, res, next) => {
     );
     results.sort((a, b) => b.averageRating - a.averageRating);
     res.json({ results });
+  } catch (err) { next(err); }
+});
+
+// GET /api/admin/analytics — program-wide analytics across every batch.
+// Prototypes are grouped by sketchfabEmbedUrl (the stable identity that
+// survives being copied into batches), so the same product is one row even
+// if it ran in several reviews.
+router.get('/analytics', requireAuth, async (req, res, next) => {
+  try {
+    const [sessions, models, votes, views] = await Promise.all([
+      Session.find(),
+      Model.find(),
+      Vote.find(),
+      View.find(),
+    ]);
+
+    const round1 = (n) => Math.round(n * 10) / 10;
+    const average = (nums) => (nums.length ? nums.reduce((s, n) => s + n, 0) / nums.length : 0);
+    const modelUrl = new Map(models.map((m) => [m._id.toString(), m.sketchfabEmbedUrl]));
+    const modelName = new Map(models.map((m) => [m._id.toString(), m.name]));
+
+    // ── Totals ──
+    const totals = {
+      batches: sessions.length,
+      prototypes: new Set(models.map((m) => m.sketchfabEmbedUrl)).size,
+      votes: votes.length,
+      voters: new Set(votes.map((v) => v.voterUUID)).size,
+      opens: views.length,
+    };
+
+    // ── Per-prototype, grouped across all batches by embed URL ──
+    const groups = new Map(); // url -> { name, ratings:[], sessionIds:Set }
+    for (const m of models) {
+      if (!groups.has(m.sketchfabEmbedUrl)) {
+        groups.set(m.sketchfabEmbedUrl, { name: m.name, ratings: [], sessionIds: new Set() });
+      }
+      groups.get(m.sketchfabEmbedUrl).sessionIds.add(m.sessionId.toString());
+    }
+    for (const v of votes) {
+      const url = modelUrl.get(v.modelId.toString());
+      if (url && groups.has(url)) groups.get(url).ratings.push(v.rating);
+    }
+    const prototypes = [...groups.entries()].map(([url, g]) => {
+      const distribution = [0, 0, 0, 0, 0];
+      g.ratings.forEach((r) => { distribution[r - 1] += 1; });
+      return {
+        name: g.name,
+        sketchfabEmbedUrl: url,
+        voteCount: g.ratings.length,
+        averageRating: round1(average(g.ratings)),
+        distribution,
+        batchCount: g.sessionIds.size,
+      };
+    }).sort((a, b) => b.averageRating - a.averageRating || b.voteCount - a.voteCount);
+
+    // ── Per-batch breakdown ──
+    const bySession = new Map(); // sid -> { ratings:[], voters:Set, perModel:Map }
+    for (const v of votes) {
+      const sid = v.sessionId.toString();
+      if (!bySession.has(sid)) bySession.set(sid, { ratings: [], voters: new Set(), perModel: new Map() });
+      const b = bySession.get(sid);
+      b.ratings.push(v.rating);
+      b.voters.add(v.voterUUID);
+      const mid = v.modelId.toString();
+      if (!b.perModel.has(mid)) b.perModel.set(mid, []);
+      b.perModel.get(mid).push(v.rating);
+    }
+    const opensBySession = new Map();
+    for (const view of views) {
+      const sid = view.sessionId.toString();
+      opensBySession.set(sid, (opensBySession.get(sid) || 0) + 1);
+    }
+    const batches = sessions.map((s) => {
+      const sid = s._id.toString();
+      const b = bySession.get(sid) || { ratings: [], voters: new Set(), perModel: new Map() };
+      let leader = null;
+      let leaderAvg = -1;
+      for (const [mid, ratings] of b.perModel.entries()) {
+        const a = average(ratings);
+        if (a > leaderAvg) { leaderAvg = a; leader = modelName.get(mid) || null; }
+      }
+      return {
+        id: s._id,
+        name: s.name,
+        status: s.status,
+        opens: opensBySession.get(sid) || 0,
+        voters: b.voters.size,
+        voteCount: b.ratings.length,
+        averageRating: round1(average(b.ratings)),
+        leader: leader ? { name: leader, averageRating: round1(leaderAvg) } : null,
+        createdAt: s.createdAt,
+      };
+    }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.json({ totals, prototypes, batches });
   } catch (err) { next(err); }
 });
 
