@@ -25,7 +25,7 @@ Built for **LOF (Lab of Future)** as a standalone module that can also be driven
 - **Create a batch by tapping prototype tiles** — selection order becomes the order students see; copies go into the new batch
 - Add/remove models per batch manually too (locked while voting is open)
 - Open/close voting with one click (opening requires at least one prototype), copy shareable vote link
-- **Share to a class fast** — show a big QR code to project or print, or one-tap WhatsApp share, straight from the batch screen
+- **Share to a class fast** — show a big QR code to project or print, or share the link via the device's native share sheet (with Email / WhatsApp / Copy fallbacks), straight from the batch screen
 - Delete a closed batch along with its models and votes — from the list or the batch page
 - **Live results page** — auto-refreshes every 5s: total votes, leading prototype, average-rating bars, per-star histograms
 - **Analytics page** — program-wide view across every batch: per-prototype donut charts + star histograms (grouped by model, so one product is one row even across several reviews), an average-rating comparison, and a per-batch "opened → voted" participation funnel

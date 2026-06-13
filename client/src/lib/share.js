@@ -10,3 +10,12 @@ export function voteLink(sessionId, origin) {
 export function whatsappShareUrl(link, message = 'Rate our 3D prototypes and share your feedback:') {
   return `https://wa.me/?text=${encodeURIComponent(`${message} ${link}`)}`;
 }
+
+// mailto: link with the subject + body prefilled, opening the user's mail app.
+export function emailShareUrl(
+  link,
+  subject = 'Rate our 3D prototypes',
+  body = 'Open this link to rate our 3D prototypes and share your feedback:'
+) {
+  return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(`${body} ${link}`)}`;
+}

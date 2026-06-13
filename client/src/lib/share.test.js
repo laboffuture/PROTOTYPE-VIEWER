@@ -1,4 +1,4 @@
-import { voteLink, whatsappShareUrl } from './share';
+import { voteLink, whatsappShareUrl, emailShareUrl } from './share';
 
 describe('voteLink', () => {
   it('builds the vote path from an explicit origin', () => {
@@ -20,5 +20,15 @@ describe('whatsappShareUrl', () => {
   it('encodes a custom message', () => {
     const url = whatsappShareUrl('https://x.test/vote/1', 'Vote now:');
     expect(decodeURIComponent(url.split('text=')[1])).toBe('Vote now: https://x.test/vote/1');
+  });
+});
+
+describe('emailShareUrl', () => {
+  it('builds a mailto with subject and the link in the body', () => {
+    const url = emailShareUrl('https://x.test/vote/1');
+    expect(url.startsWith('mailto:?')).toBe(true);
+    const params = new URLSearchParams(url.slice('mailto:?'.length));
+    expect(params.get('subject')).toBe('Rate our 3D prototypes');
+    expect(params.get('body')).toContain('https://x.test/vote/1');
   });
 });

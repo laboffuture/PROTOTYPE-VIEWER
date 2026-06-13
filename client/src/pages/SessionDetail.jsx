@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { AdminLayout } from '../components/AdminLayout';
-import { voteLink, whatsappShareUrl } from '../lib/share';
+import { voteLink, whatsappShareUrl, emailShareUrl } from '../lib/share';
 
 const API = import.meta.env.VITE_API_URL || '';
 const REFRESH_MS = 5000;
@@ -96,9 +96,24 @@ export function SessionDetail() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const timerRef = useRef(null);
 
   const link = voteLink(id);
+
+  // Channel-neutral share: the OS share sheet where supported (WhatsApp, Gmail,
+  // Messages, …, all equal), otherwise a small Email / WhatsApp / Copy menu.
+  const share = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: session?.name || 'PROTOVIEW', text: 'Rate our 3D prototypes:', url: link });
+      } catch {
+        /* user cancelled — leave the menu closed */
+      }
+      return;
+    }
+    setShareOpen((v) => !v);
+  };
 
   const authHeaders = {
     'Content-Type': 'application/json',
@@ -239,15 +254,32 @@ export function SessionDetail() {
               <button className="btn btn-ghost" style={{ fontSize: 11, padding: '8px 16px' }} onClick={() => setShowQR(true)}>
                 SHOW QR
               </button>
-              <a
-                className="btn btn-ghost"
-                style={{ fontSize: 11, padding: '8px 16px', textDecoration: 'none' }}
-                href={whatsappShareUrl(link)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                WHATSAPP
-              </a>
+              <div style={{ position: 'relative' }}>
+                <button className="btn btn-ghost" style={{ fontSize: 11, padding: '8px 16px' }} onClick={share}>
+                  SHARE
+                </button>
+                {shareOpen && (
+                  <>
+                    <div onClick={() => setShareOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 19 }} />
+                    <div style={{
+                      position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 20,
+                      background: 'var(--bg-white)', border: '2px solid var(--border)',
+                      borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)',
+                      padding: 6, minWidth: 170, display: 'flex', flexDirection: 'column', gap: 2,
+                    }}>
+                      <a className="share-item" href={emailShareUrl(link)} onClick={() => setShareOpen(false)}>
+                        Email
+                      </a>
+                      <a className="share-item" href={whatsappShareUrl(link)} target="_blank" rel="noopener noreferrer" onClick={() => setShareOpen(false)}>
+                        WhatsApp
+                      </a>
+                      <button className="share-item" onClick={() => { copyLink(); setShareOpen(false); }}>
+                        Copy link
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
               {isOpen
                 ? <button className="btn btn-neutral" style={{ fontSize: 11, padding: '8px 16px' }} onClick={() => updateStatus('closed')}>Close Voting</button>
                 : <button className="btn btn-primary" style={{ fontSize: 11, padding: '8px 16px' }} onClick={() => updateStatus('open')}>Open Voting</button>
