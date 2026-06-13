@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import { DonutChart } from '../components/DonutChart';
+import { STAR_COLORS } from '../lib/chartColors';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -36,8 +37,7 @@ function MiniHistogram({ distribution }) {
           <div style={{
             width: '100%', maxWidth: 20,
             height: Math.max(3, (count / max) * 34),
-            background: count > 0 ? 'var(--brand)' : 'var(--border)',
-            opacity: count > 0 ? 0.3 + (i / 4) * 0.7 : 1,
+            background: count > 0 ? STAR_COLORS[i] : 'var(--border)',
             borderRadius: 2,
           }} />
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-muted)' }}>{i + 1}★</span>
@@ -91,7 +91,6 @@ export function AnalyticsDashboard() {
   const totals = data?.totals || { batches: 0, prototypes: 0, votes: 0, voters: 0, opens: 0 };
   const prototypes = data?.prototypes || [];
   const batches = data?.batches || [];
-  const topAvg = Math.max(0, ...prototypes.filter((p) => p.voteCount > 0).map((p) => p.averageRating));
   const overallConversion = totals.opens > 0 && totals.opens >= totals.voters
     ? Math.round((totals.voters / totals.opens) * 100)
     : null;
@@ -164,37 +163,6 @@ export function AnalyticsDashboard() {
                   </div>
                 </div>
               ))}
-            </div>
-
-            {/* Average rating comparison */}
-            <div className="card" style={{ padding: 28, marginBottom: 32 }}>
-              <h2 className="card-title" style={{ marginBottom: 18 }}>Average Rating — All Prototypes</h2>
-              {prototypes.map((p) => {
-                const isTop = p.voteCount > 0 && Math.abs(p.averageRating - topAvg) < 0.001;
-                return (
-                  <div key={p.sketchfabEmbedUrl} style={{ marginBottom: 14 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6, gap: 12 }}>
-                      <span style={{
-                        fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600,
-                        color: isTop ? 'var(--brand)' : 'var(--text-primary)',
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0,
-                      }}>
-                        {p.name} {isTop && '🏆'}
-                      </span>
-                      <span style={{ fontFamily: 'var(--font-heading)', fontSize: 14, fontWeight: 900, color: isTop ? 'var(--brand)' : 'var(--text-primary)', flexShrink: 0 }}>
-                        ★ {p.averageRating.toFixed(1)}
-                      </span>
-                    </div>
-                    <div style={{ height: 10, background: 'var(--brand-bg)', borderRadius: 5, overflow: 'hidden' }}>
-                      <div style={{
-                        width: `${(p.averageRating / 5) * 100}%`, height: '100%',
-                        background: isTop ? 'var(--brand)' : 'var(--text-muted)',
-                        borderRadius: 5, transition: 'width 0.6s ease',
-                      }} />
-                    </div>
-                  </div>
-                );
-              })}
             </div>
 
             {/* By batch */}
