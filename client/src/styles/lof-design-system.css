@@ -17,6 +17,13 @@
   --accent-bg:     rgba(217, 58, 43, 0.10);
   --accent-border: rgba(217, 58, 43, 0.30);
 
+  /* Extended logo palette — reserved for hero / QR surfaces; the core app
+     stays on --brand (#1C4D8C). */
+  --brand-bright:   #0511F2;
+  --brand-deep:     #030A8C;
+  --ink:            #0D0D0D;
+  --brand-gradient: linear-gradient(135deg, #030A8C 0%, #0511F2 100%);
+
   --bg-primary: #F2F2F2;
   --bg-white:   #ffffff;
 
@@ -264,4 +271,60 @@ body {
     min-height: 0;
     overflow-y: visible;
   }
+}
+
+/* ── QR share modal (project the vote link to a class) ── */
+.qr-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(13, 13, 13, 0.78); /* --ink, dimmed */
+  backdrop-filter: blur(4px);
+}
+.qr-modal {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-white);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+.qr-modal-header {
+  padding: 22px 24px;
+  background: var(--brand-gradient);
+  color: #fff;
+}
+.qr-modal-body {
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+.qr-frame {
+  padding: 16px;
+  background: #fff;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--border);
+  line-height: 0;
+}
+
+/* Print only the QR + link, nothing else on the page */
+@media print {
+  body * { visibility: hidden; }
+  .qr-print, .qr-print * { visibility: visible; }
+  .qr-print {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+  }
+  .qr-no-print { display: none !important; }
 }

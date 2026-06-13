@@ -14,6 +14,7 @@ Built for **LOF (Lab of Future)** as a standalone module that can also be driven
 - Model name + description panel, star rating — all on one screen, no scrolling
 - **Every prototype must be rated before submitting** — enforced in the UI and again on the server
 - One submission per device (localStorage UUID + unique DB index — no duplicate votes)
+- **Progress is saved on the device** — a refresh, a phone call, or an accidental back-swipe resumes where the student left off instead of wiping their ratings
 - Responsive: viewer and controls stack vertically on phones
 - After submitting: a simple thank-you. **Students never see results.**
 
@@ -24,6 +25,7 @@ Built for **LOF (Lab of Future)** as a standalone module that can also be driven
 - **Create a batch by tapping prototype tiles** — selection order becomes the order students see; copies go into the new batch
 - Add/remove models per batch manually too (locked while voting is open)
 - Open/close voting with one click (opening requires at least one prototype), copy shareable vote link
+- **Share to a class fast** — show a big QR code to project or print, or one-tap WhatsApp share, straight from the batch screen
 - Delete a closed batch along with its models and votes — from the list or the batch page
 - **Live results page** — auto-refreshes every 5s: total votes, leading prototype, average-rating bars, per-star histograms
 - **Analytics page** — program-wide view across every batch: per-prototype donut charts + star histograms (grouped by model, so one product is one row even across several reviews), an average-rating comparison, and a per-batch "opened → voted" participation funnel
@@ -93,6 +95,9 @@ Built for **LOF (Lab of Future)** as a standalone module that can also be driven
 │       │   ├── StarRating.jsx       # Accessible 1–5 star input
 │       │   ├── DonutChart.jsx       # SVG donut of a 1–5★ distribution (no chart lib)
 │       │   └── RankingsTable.jsx    # Sortable results table
+│       ├── lib/
+│       │   ├── share.js             # Vote-link + WhatsApp share-URL helpers
+│       │   └── ratingsStore.js      # Persist in-progress ratings on the device
 │       ├── pages/
 │       │   ├── VotePage.jsx         # Student voting flow (+ open beacon)
 │       │   ├── AdminLogin.jsx       # Username/password → JWT

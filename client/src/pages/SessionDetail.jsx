@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import { AdminLayout } from '../components/AdminLayout';
+import { voteLink, whatsappShareUrl } from '../lib/share';
 
 const API = import.meta.env.VITE_API_URL || '';
 const REFRESH_MS = 5000;
@@ -93,7 +95,10 @@ export function SessionDetail() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [showQR, setShowQR] = useState(false);
   const timerRef = useRef(null);
+
+  const link = voteLink(id);
 
   const authHeaders = {
     'Content-Type': 'application/json',
@@ -187,7 +192,7 @@ export function SessionDetail() {
   };
 
   const copyLink = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/vote/${id}`);
+    navigator.clipboard.writeText(link);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -227,10 +232,22 @@ export function SessionDetail() {
                 {isOpen ? '● LIVE' : 'CLOSED'}
               </span>
             </div>
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button className="btn btn-ghost" style={{ fontSize: 11, padding: '8px 16px' }} onClick={copyLink}>
                 {copied ? '✓ COPIED' : 'COPY VOTE LINK'}
               </button>
+              <button className="btn btn-ghost" style={{ fontSize: 11, padding: '8px 16px' }} onClick={() => setShowQR(true)}>
+                SHOW QR
+              </button>
+              <a
+                className="btn btn-ghost"
+                style={{ fontSize: 11, padding: '8px 16px', textDecoration: 'none' }}
+                href={whatsappShareUrl(link)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                WHATSAPP
+              </a>
               {isOpen
                 ? <button className="btn btn-neutral" style={{ fontSize: 11, padding: '8px 16px' }} onClick={() => updateStatus('closed')}>Close Voting</button>
                 : <button className="btn btn-primary" style={{ fontSize: 11, padding: '8px 16px' }} onClick={() => updateStatus('open')}>Open Voting</button>
@@ -361,6 +378,40 @@ export function SessionDetail() {
             </div>
           </form>
         </div>
+
+        {/* QR projection modal — show or print to share with a class */}
+        {showQR && (
+          <div className="qr-overlay" onClick={() => setShowQR(false)}>
+            <div className="qr-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="qr-modal-header qr-no-print">
+                <p style={{ fontFamily: 'var(--font-heading)', fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', opacity: 0.85 }}>
+                  Scan to vote
+                </p>
+                <p style={{ fontFamily: 'var(--font-heading)', fontSize: 18, fontWeight: 900, letterSpacing: '0.04em', textTransform: 'uppercase', marginTop: 4 }}>
+                  {session?.name}
+                </p>
+              </div>
+              <div className="qr-modal-body">
+                <div className="qr-print">
+                  <div className="qr-frame">
+                    <QRCodeSVG value={link} size={240} fgColor="#030A8C" bgColor="#ffffff" level="M" />
+                  </div>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)', wordBreak: 'break-all', textAlign: 'center', maxWidth: 280 }}>
+                    {link}
+                  </p>
+                </div>
+                <div className="qr-no-print" style={{ display: 'flex', gap: 10 }}>
+                  <button className="btn btn-primary" style={{ fontSize: 11, padding: '8px 18px' }} onClick={() => window.print()}>
+                    Print
+                  </button>
+                  <button className="btn btn-neutral" style={{ fontSize: 11, padding: '8px 18px' }} onClick={() => setShowQR(false)}>
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </AdminLayout>

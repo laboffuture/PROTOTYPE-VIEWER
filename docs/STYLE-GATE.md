@@ -53,6 +53,19 @@ Loaded once via Google Fonts `@import` in the design-system CSS, exposed as CSS 
 
 Used only for error banners and destructive hover (logout = `#dc2626` on `#fef2f2`).
 
+### Extended logo palette (hero / QR surfaces only)
+
+The full LOF logo range. Reserved for new hero moments so screens that already passed this gate stay untouched.
+
+| Token | Value | Use |
+|---|---|---|
+| `--brand-bright` | `#0511F2` | Bright blue — gradient end on hero surfaces |
+| `--brand-deep` | `#030A8C` | Deep navy — gradient start; QR modules (dark enough to scan on white) |
+| `--ink` | `#0D0D0D` | Near-black — modal backdrops (`rgba(13,13,13,0.78)`) |
+| `--brand-gradient` | `135deg, deep → bright` | QR / share modal header |
+
+**Rule:** the core app stays on `--brand #1C4D8C`. These three are reserved for new hero surfaces (currently the QR projection modal) — never recolor existing screens with them without a deliberate decision.
+
 ### Surfaces & text
 
 | Token | Value | Use |

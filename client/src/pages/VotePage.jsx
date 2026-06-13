@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { ModelCarousel } from '../components/ModelCarousel';
+import { loadRatings, saveRatings, clearRatings } from '../lib/ratingsStore';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -47,6 +48,8 @@ export function VotePage() {
       .then((data) => {
         setSession(data.session);
         setModels(data.models);
+        // Restore any ratings this device started earlier for this batch
+        setRatings(loadRatings(sessionId, data.models.map((m) => m._id)));
         setLoading(false);
       })
       .catch(() => {
@@ -56,7 +59,11 @@ export function VotePage() {
   }, [sessionId]);
 
   const handleRate = (modelId, rating) => {
-    setRatings((prev) => ({ ...prev, [modelId]: rating }));
+    setRatings((prev) => {
+      const next = { ...prev, [modelId]: rating };
+      saveRatings(sessionId, next); // persist so a refresh doesn't lose progress
+      return next;
+    });
   };
 
   const handleSubmit = async () => {
@@ -80,6 +87,7 @@ export function VotePage() {
         return;
       }
       localStorage.setItem(`submitted_${sessionId}`, '1');
+      clearRatings(sessionId); // submitted — no need to keep the draft
       setSubmitted(true);
     } catch {
       setSubmitError('Failed to submit. Check your connection and try again.');
